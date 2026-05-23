@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root { --red: #e60000; --green: #198754; --yellow: #ffd400; --blue: #0d6efd; }
+    body { background-color: #f4f7f6; font-family: sans-serif; padding-bottom: 20px; }
+    .app-header { font-size: 18px; font-weight: 900; color: var(--yellow); text-align: center; padding: 10px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-shadow: -1px -1px 0 var(--red), 1px -1px 0 var(--red), -1px 1px 0 var(--red), 1px 1px 0 var(--red); }
+    .card { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 10px; }
+    .btn-red { background: var(--red); color: white; font-weight: bold; border-radius: 8px; padding: 12px; border: none; width: 100%; }
+    .hidden { display: none; }
+    .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; }
+    #loginOverlay { display: none; align-items: center; justify-content: center; background: #f4f7f6; z-index: 20000; position: fixed; top:0; left:0; width: 100%; height:100%; }
+    .login-card { width: 90%; max-width: 320px; padding: 25px; border: 4px solid var(--red); border-radius: 15px; background: white; text-align: center; }
+    .custom-modal { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:10000; background:white; padding:20px; border-radius:15px; width: 90%; max-width: 350px; text-align:center; border: 4px solid var(--red); }
+    .photo-link-btn { display: inline-block; background: #ffc107; color: #000; font-weight: 800; font-size: 10px; padding: 4px 8px; border-radius: 4px; text-decoration: none; margin: 2px; border: 1px solid #000; }
+    .vendor-name { font-weight: 800; color: #333; font-size: 0.9rem; }
+    .amt-red { color: var(--red) !important; font-weight: 900; }
+    .amt-green { color: var(--green) !important; font-weight: 900; }
+    .vendor-header { background: #fff; border-left: 5px solid var(--red); cursor: pointer; }
+    .sum-badge { background: #333; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 20px; font-weight: bold; }
+    .search-input { border: 2px solid var(--red) !important; border-radius: 8px; font-weight: bold; }
+    .preview-box { position: relative; width: 65px; height: 65px; border-radius: 8px; overflow: hidden; border: 2px solid #ffc107; display:inline-block; margin: 3px; background: #eee; }
+    .preview-box img { width: 100%; height: 100%; object-fit: contain; background: #000; }
+    .del-btn { position: absolute; top: 0; right: 0; background: red; color: white; border: none; font-size: 12px; padding: 0 5px; }
+    .detail-pane { display: none; background: #fdfdfd; padding: 8px; border-top: 1px solid #ddd; }
+    .summary-card-paid { background: var(--green); color: white; border-radius: 10px; padding: 10px; text-align: center; }
+    .summary-card-due { background: var(--red); color: white; border-radius: 10px; padding: 10px; text-align: center; }
+    .summary-val { font-size: 1.1rem; font-weight: 900; }
+    .summary-label { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+
+<div id="loginOverlay">
+  <div class="login-card shadow">
+    <h4 class="fw-bold mb-3">ACCOUNTANT LOGIN</h4>
+    <p class="small text-muted">Select your name and enter PIN</p>
+    <select id="userSelect" class="form-select mb-3 border-danger fw-bold">
+      <option value="Niranjan">Niranjan</option>
+      <option value="Vishal">Vishal</option>
+    </select>
+    <input type="password" id="userPin" class="form-control mb-3 text-center" placeholder="ENTER PIN" inputmode="numeric">
+    <button onclick="validateLogin()" class="btn-red">LOGIN</button>
+    <div id="loginErr" class="text-danger small mt-2 fw-bold"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+
+<div id="successModal" class="custom-modal">
+  <div style="font-size:40px; color:var(--green)">✔️</div>
+  <h5 class="fw-bold">COMPLETED</h5>
+  <button class="btn btn-success w-100 fw-bold mt-2" onclick="closeModals()">OK</button>
+</div>
+
+<div id="paidPopup" class="custom-modal" style="border-color:#0d6efd">
+  <h6 class="fw-bold mb-3">Mark Paid Details</h6>
+  <select id="pMode" class="form-select form-select-sm mb-2">
+    <option>Bank Transfer</option><option>UPI / GPay</option><option>Cheque</option><option>Cash</option>
+  </select>
+  <input type="text" id="pBank" class="form-control form-control-sm mb-2" placeholder="Bank Name">
+  <input type="date" id="pDate" class="form-control form-control-sm mb-2">
+  <textarea id="pRemark" class="form-control form-control-sm mb-3" rows="2" placeholder="Ref No / Details"></textarea>
+  <div class="d-flex gap-2">
+    <button class="btn btn-secondary w-50 fw-bold" onclick="closeModals()">Cancel</button>
+    <button class="btn btn-primary w-50 fw-bold" id="confirmPaidBtn" onclick="submitPaidAction()">SAVE</button>
+  </div>
+</div>
+
+<header class="app-header">RAGHUVIR SWEETS AND BAKERS</header>
+
+<div class="container py-2">
+  <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+    <div id="branchArea">
+      <select id="accBranch" class="form-select form-select-sm border-danger fw-bold hidden" onchange="fetchVendorHistory()">
+        <option>Ram Mandir</option><option>Vishrambagh</option><option>Miraj</option><option>Savali</option>
+      </select>
+      <span id="fixedBranchLabel" class="badge bg-danger">...</span>
+    </div>
+    <span class="badge bg-dark">ID: <span id="roleLabel">...</span></span>
+    <button id="accToggleBtn" class="btn btn-sm btn-dark fw-bold" onclick="toggleDashboard()">📜 DASHBOARD</button>
+  </div>
+
+  <div id="formView">
+    <div class="card p-3 mb-2 shadow-sm">
+      <form id="entryForm" onsubmit="event.preventDefault(); handleFormSubmit();">
+        <div class="row g-2">
+          <div class="col-12">
+            <div class="input-group">
+                <select id="partyName" class="form-select" onchange="fetchVendorHistory()" required><option value="">-- Select Vendor --</option></select>
+                <!-- UPDATED: Added ID to button for role-based visibility -->
+                <button id="addPartyBtn" type="button" class="btn btn-success fw-bold hidden" onclick="promptAddParty()">+</button>
+            </div>
+          </div>
+          <div class="col-6"><input type="text" id="billNo" class="form-control" placeholder="Bill No" required></div>
+          <div class="col-6"><input type="date" id="tDate" class="form-control" required></div>
+          <div class="col-6"><input type="number" id="amt" class="form-control" placeholder="Amount ₹" required></div>
+          <div class="col-6">
+            <select id="method" class="form-select" onchange="toggleChequeField()">
+               <option>Credit</option><option>Cash</option><option>Cheque</option><option>Debit Note</option><option>Online/UPI Paid</option><option>Credit Note</option>
+            </select>
+          </div>
+          <div id="chequeInputDiv" class="col-12 hidden"><input type="text" id="chequeNo" class="form-control" placeholder="Ref Remark (Required for Notes)"></div>
+          <div class="col-12 mt-2">
+            <div class="row g-2">
+              <div class="col-6"><div class="btn btn-warning w-100 fw-bold" style="font-size: 13px;" onclick="document.getElementById('camFile').click()">📸 CAMERA</div></div>
+              <div class="col-6"><div class="btn btn-primary w-100 fw-bold text-white" style="font-size: 13px;" onclick="document.getElementById('galFile').click()">📁 GALLERY</div></div>
+            </div>
+            <input type="file" id="camFile" class="hidden" accept="image/*" capture="environment" onchange="handleFiles(this)" multiple>
+            <input type="file" id="galFile" class="hidden" accept="image/*" onchange="handleFiles(this)" multiple>
+            <div id="previewContainer" class="mt-1 text-center"></div>
+          </div>
+        </div>
+        <button type="submit" id="subBtn" class="btn-red mt-3 py-2 shadow">SUBMIT DATA</button>
+      </form>
+    </div>
+    <div class="card p-0 shadow-sm"><div class="bg-dark text-white p-2 small fw-bold">Recent Vendor History</div><div class="table-responsive"><table class="table table-sm mb-0"><tbody id="vendorHistBody"></tbody></table></div></div>
+  </div>
+
+  <div id="dashboardView" class="hidden">
+    <div id="adminSummary" class="row g-2 mb-2 hidden">
+      <div class="col-6"><div class="summary-card-paid shadow-sm"><div class="summary-label">Settled (Paid/Cash)</div><div id="sumPaid" class="summary-val">₹0</div></div></div>
+      <div class="col-6"><div class="summary-card-due shadow-sm"><div class="summary-label">Pending Due (Credit)</div><div id="sumDue" class="summary-val">₹0</div></div></div>
+    </div>
+    <div class="card p-2 mb-2 shadow-sm">
+      <input type="text" id="dashSearch" class="form-control search-input mb-2" placeholder="🔍 Search Vendor or Bill..." onkeyup="filterBySearch()">
+      <div class="row g-1">
+        <div class="col-6"><input type="date" id="dashStart" class="form-control form-control-sm"></div>
+        <div class="col-6"><input type="date" id="dashEnd" class="form-control form-control-sm"></div>
+        <div class="col-6 mt-1"><select id="fBranch" class="form-select form-select-sm"><option value="All">All Branches</option><option>Ram Mandir</option><option>Vishrambagh</option><option>Miraj</option><option>Savali</option></select></div>
+        <div class="col-6 mt-1"><select id="fStatus" class="form-select form-select-sm"><option value="All">All Status</option><option selected>Credit</option><option>Paid</option><option>Cash</option><option>Cheque</option><option>Debit Note</option><option>Credit Note</option></select></div>
+        <div class="col-12 mt-1"><select id="fVerify" class="form-select form-select-sm border-primary"><option value="All">All Verification Status</option><option value="Verified">Verified Only</option><option value="Unverified">Unverified Only</option></select></div>
+        <button onclick="loadDashboard()" class="btn btn-dark btn-sm mt-2 fw-bold w-100">FILTER DATA</button>
+      </div>
+      <div id="adminActionBtns" class="row g-1 mt-2 hidden">
+        <div class="col-6"><button onclick="printDashboard()" class="btn btn-secondary btn-sm fw-bold w-100">🖨️ PRINT</button></div>
+        <div class="col-6"><button id="btnFifoToggle" onclick="toggleFifo()" class="btn btn-info btn-sm fw-bold w-100 text-white">🔄 FIFO SORT</button></div>
+      </div>
+    </div>
+    <div id="dashBody"></div>
+  </div>
+</div>
+
+<script>
+  const PASSWORDS = { "Niranjan": "1111", "Vishal": "2222" };
+  const ROLE = "<?!= role ?>".toLowerCase();
+  const BRANCH = "<?!= urlBranch ?>";
+  const TIMEOUT_MS = 10 * 60 * 1000;
+
+  let loggedInUser = ROLE, idleTimer;
+  let photos = [], fullData = [], allVendors = [], currentGroupItems = [], isBulk = false, isFifoView = false;
+
+  window.onload = function() {
+    document.getElementById('tDate').valueAsDate = new Date();
+    document.getElementById('pDate').valueAsDate = new Date();
+    loadVendors();
+    const isAnyAcc = (ROLE === 'accountant' || ROLE === 'accountantn' || ROLE === 'accountantv');
+    if (isAnyAcc) { document.getElementById('loginOverlay').style.display = 'flex'; }
+    else { initApp(); }
+  };
+
+  function startIdleTimer() {
+    const isAnyAcc = (ROLE === 'accountant' || ROLE === 'accountantn' || ROLE === 'accountantv');
+    if (!isAnyAcc) return;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(autoLogout, TIMEOUT_MS);
+    ['mousedown','mousemove','keypress','scroll','touchstart'].forEach(evt => {
+      document.addEventListener(evt, resetIdleTimer, true);
+    });
+  }
+  function resetIdleTimer() { clearTimeout(idleTimer); idleTimer = setTimeout(autoLogout, TIMEOUT_MS); }
+  function autoLogout() {
+    alert("Session expired due to inactivity.");
+    loggedInUser = ROLE; photos = []; renderPreviews();
+    document.getElementById('entryForm').reset();
+    document.getElementById('userPin').value = "";
+    document.getElementById('loginOverlay').style.display = 'flex';
+    document.getElementById('roleLabel').innerText = "...";
+  }
+  function validateLogin() {
+    const user = document.getElementById('userSelect').value;
+    const pin  = document.getElementById('userPin').value;
+    if (PASSWORDS[user] === pin) {
+      loggedInUser = user;
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('userPin').value = "";
+      initApp(); startIdleTimer();
+    } else { document.getElementById('loginErr').innerText = "Incorrect PIN!"; }
+  }
+  function initApp() {
+    document.getElementById('roleLabel').innerText = loggedInUser.toUpperCase();
+    
+    // UPDATED: Show Add Party button only for EA, PC, Admin
+    const canAdd = (ROLE === 'admin' || ROLE === 'ea' || ROLE === 'pc');
+    document.getElementById('addPartyBtn').classList.toggle('hidden', !canAdd);
+
+    const branchDropdown = document.getElementById('accBranch');
+    const branchLabel    = document.getElementById('fixedBranchLabel');
+    if (ROLE === 'admin' || ROLE === 'pc' || ROLE === 'ea') {
+      document.getElementById('branchArea').classList.add('hidden');
+      document.getElementById('formView').classList.add('hidden');
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('accToggleBtn').classList.add('hidden');
+      if (ROLE === 'admin' || ROLE === 'ea') {
+        document.getElementById('adminSummary').classList.remove('hidden');
+        document.getElementById('adminActionBtns').classList.remove('hidden');
+      }
+      loadDashboard();
+    } else {
+      const isAnyAcc = (ROLE === 'accountant' || ROLE === 'accountantn' || ROLE === 'accountantv');
+      if (isAnyAcc) { branchDropdown.classList.remove('hidden'); branchLabel.classList.add('hidden'); branchDropdown.value = BRANCH; }
+      else { branchLabel.innerText = "Br: " + BRANCH; }
+    }
+  }
+
+  function loadVendors() { google.script.run.withSuccessHandler(data => { const s = document.getElementById('partyName'); s.options.length = 1; data.forEach(p => s.add(new Option(p,p))); }).getParties(); }
+  function toggleChequeField() { const m = document.getElementById('method').value; document.getElementById('chequeInputDiv').classList.toggle('hidden', !(m === 'Cheque' || m.includes('Note'))); }
+
+  async function handleFiles(input) {
+    if (!input.files.length) return;
+    for (let file of Array.from(input.files)) { try { photos.push(await compressImage(file)); } catch(e) { console.error(e); } }
+    renderPreviews(); input.value = "";
+  }
+  function compressImage(file) {
+    return new Promise(res => {
+      const reader = new FileReader(); reader.readAsDataURL(file);
+      reader.onload = e => {
+        const img = new Image(); img.src = e.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let w = img.width, h = img.height, max = 1600;
+          if (w > h) { if (w > max) { h *= max/w; w = max; } } else { if (h > max) { w *= max/h; h = max; } }
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(img, 0, 0, w, h);
+          res(canvas.toDataURL('image/jpeg', 0.85));
+        };
+      };
+    });
+  }
+  function renderPreviews() { document.getElementById('previewContainer').innerHTML = photos.map((p,i) => `<div class="preview-box"><img src="${p}"><button type="button" class="del-btn" onclick="photos.splice(${i},1);renderPreviews()">X</button></div>`).join(""); }
+
+  function handleFormSubmit() {
+    const method = document.getElementById('method').value, remark = document.getElementById('chequeNo').value;
+    if (!photos.length) return alert("Photo Required");
+    if (method.includes('Note') && !remark) return alert("Remark is mandatory for Notes");
+    const btn = document.getElementById('subBtn'); btn.disabled = true; btn.innerText = "Processing...";
+    const data = { party: document.getElementById('partyName').value, bill: document.getElementById('billNo').value, date: document.getElementById('tDate').value, amount: document.getElementById('amt').value, method, chequeNo: remark, branch: getCurrentBranch(), role: loggedInUser, files: photos.map(p => ({base64: p})) };
+    google.script.run.withSuccessHandler(res => {
+      btn.disabled = false; btn.innerText = "SUBMIT DATA";
+      if (res.status === "DUPLICATE") alert(res.msg);
+      else if (res.status === "ERROR") alert("Error: " + res.msg);
+      else { photos=[]; renderPreviews(); document.getElementById('entryForm').reset(); document.getElementById('chequeInputDiv').classList.add('hidden'); fetchVendorHistory(); document.getElementById('successModal').style.display='block'; document.getElementById('overlay').style.display='block'; }
+    }).submitForm(data);
+  }
+
+  function loadDashboard() {
+    const start = document.getElementById('dashStart').value, end = document.getElementById('dashEnd').value;
+    const isSpecial = (ROLE === 'admin' || ROLE === 'pc' || ROLE === 'ea');
+    const b = isSpecial ? document.getElementById('fBranch').value : (ROLE.includes('accountant') ? document.getElementById('accBranch').value : BRANCH);
+    const s = document.getElementById('fStatus').value, v = document.getElementById('fVerify').value;
+    document.getElementById('dashBody').innerHTML = '<div class="text-center p-4 small">Syncing Data...</div>';
+    google.script.run.withSuccessHandler(data => { fullData = data; renderDashboard(data); }).getDashboardData(start, end, b, s, v);
+  }
+  function toggleFifo() { isFifoView = !isFifoView; const btn = document.getElementById('btnFifoToggle'); btn.innerText = isFifoView ? "🔤 ALPHA SORT" : "🔄 FIFO SORT"; btn.classList.toggle('btn-info', !isFifoView); btn.classList.toggle('btn-warning', isFifoView); if(window.currentDisplayData) renderDashboard(window.currentDisplayData); }
+
+  function renderDashboard(data) {
+    window.currentDisplayData = data; let h = '', tSettled = 0, tDue = 0;
+    data.forEach(r => { if(r.method==='Credit') tDue+=parseFloat(r.amt); else tSettled+=parseFloat(r.amt); });
+    if (document.getElementById('sumPaid')) { document.getElementById('sumPaid').innerText='₹'+tSettled.toLocaleString(); document.getElementById('sumDue').innerText='₹'+tDue.toLocaleString(); }
+    if (isFifoView) data.sort((a,b)=>a.rawDate-b.rawDate); else data.sort((a,b)=>b.rawDate-a.rawDate);
+    if (ROLE==='admin'||ROLE==='pc'||ROLE==='ea') {
+      let groups={};
+      data.forEach(r=>{ if(!groups[r.party]) groups[r.party]=[]; groups[r.party].push(r); });
+      let sp=Object.keys(groups); if(!isFifoView) sp.sort((a,b)=>a.localeCompare(b));
+      sp.forEach((vendor,i)=>{
+        let items=groups[vendor], groupSum=items.reduce((a,b)=>(b.method==='Credit'?a+parseFloat(b.amt):a),0), creditItems=items.filter(x=>x.method==='Credit');
+        let bulkBtn=(ROLE==='admin'||ROLE==='ea')&&creditItems.length>0?`<button class="btn btn-sm btn-success fw-bold p-1 ms-2" style="font-size:10px" onclick="openPaidModal(null,null,true,${i})">MARK PAID ALL</button>`:'';
+        let printBtn=`<button class="btn btn-sm btn-dark fw-bold p-1 ms-1" style="font-size:10px" onclick="printStatement('${vendor}')">🖨️ PRINT</button>`;
+        let chqAllBtn=(ROLE==='admin'||ROLE==='ea')&&groupSum>0?`<button class="btn btn-sm btn-warning fw-bold p-1 ms-1" style="font-size:10px; border:1px solid #000" onclick='printBoMCheque({party:\"${vendor.replace(/'/g,"\\'")}\", amt:${groupSum}})'>CHQ ALL</button>`:'';
+        h+=`<div class="card mb-2 vendor-header"><div class="p-2 d-flex justify-content-between align-items-center" onclick="toggleDetail('grp${i}')"><div><div class="vendor-name">${vendor}</div><small>${items.length} Entries</small></div><div class="text-end"><span class="sum-badge">₹${groupSum.toLocaleString()}</span>${bulkBtn}${chqAllBtn}${printBtn}</div></div><div id="grp${i}" class="detail-pane">`;
+        items.forEach(r=>h+=renderRow(r)); h+=`</div></div>`; window['groupData'+i]=creditItems;
+      });
+    } else { h+=`<div class="card p-0 shadow-sm">`; data.forEach(r=>{h+=renderRow(r);}); h+=`</div>`; }
+    document.getElementById('dashBody').innerHTML = h || '<div class="text-center p-3">No Records Found</div>';
+  }
+
+  function renderRow(r) {
+    let pBtns=r.link?r.link.split(",").map((u,j)=>`<a href="${u.trim()}" target="_blank" class="photo-link-btn">P${j+1}</a>`).join(""):'';
+    let val=parseFloat(r.amt), color=(r.method==='Credit')?(val<0?'text-primary':'amt-red'):'amt-green';
+    let action='';
+    let vBadge = (r.verifyStatus === 'Verified') ? '<span class="badge bg-success" style="font-size:9px">VERIFIED</span>' : '<span class="badge bg-secondary" style="font-size:9px">UNVERIFIED</span>';
+    if(ROLE==='pc') { action=`<span id="v-area-${r.branch}-${r.rowIndex}">${(r.verifyStatus==='Verified')?'<span class="badge bg-success">VERIFIED</span>':`<button class="btn btn-sm btn-outline-success" onclick="verifyEntry('${r.branch}',${r.rowIndex})">VERIFY</button>`}</span>`; }
+    else if((ROLE==='admin'||ROLE==='ea')&&r.method==='Credit') { action=`${vBadge} <button class="btn btn-sm btn-primary" onclick="openPaidModal('${r.branch}',${r.rowIndex},false)">PAID</button>`; }
+    else if((ROLE==='admin'||ROLE==='ea')&&r.method!=='Credit') { action=`${vBadge} <span class="badge bg-info text-dark">${r.method.toUpperCase()}</span>`; }
+    else if(r.method==='Paid') { action=`<span style="font-size:10px;color:#6c757d;font-weight:bold">PAID</span>`; }
+    else { action=`<span class="badge bg-secondary">${r.method.toUpperCase()}</span>`; }
+    if(r.method==='Credit'&&(ROLE==='admin'||ROLE==='ea')) { action+=`<button class="btn btn-sm btn-warning fw-bold ms-1" style="font-size:10px;border:1px solid #000" onclick='printBoMCheque({party:\"${r.party.replace(/'/g,"\\'")}\",amt:${Math.abs(r.amt)}})'>🖨️ CHQ</button>`; }
+    return `<div class="p-2 border-bottom d-flex justify-content-between align-items-center" style="font-size:0.8rem"><div><b>${r.party}</b> | #${r.bill}<br><small>${r.date} | ${r.branch}</small><br><small class="fw-bold text-dark">${r.method}</small>${r.method==='Cheque'?' | <small class="text-primary">Chq: '+r.chequeNo+'</small>':''}<br>${pBtns}</div><div class="text-end"><div class="${color}">₹${r.amt}</div>${action}</div></div>`;
+  }
+
+  function numberToWords(num) {
+    const ones=['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+    const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    let str='', n=('000000000'+Math.abs(num)).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+    if(!n) return '';
+    str+=n[1]!=0?(ones[Number(n[1])]||tens[n[1][0]]+' '+ones[n[1][1]])+' Crore ':'';
+    str+=n[2]!=0?(ones[Number(n[2])]||tens[n[2][0]]+' '+ones[n[2][1]])+' Lakh ':'';
+    str+=n[3]!=0?(ones[Number(n[3])]||tens[n[3][0]]+' '+ones[n[3][1]])+' Thousand ':'';
+    str+=n[4]!=0?(ones[Number(n[4])]||tens[n[4][0]]+' '+ones[n[4][1]])+' Hundred ':'';
+    str+=n[5]!=0?((str!='')? 'and ':'' )+(ones[Number(n[5])]||tens[n[5][0]]+' '+ones[n[5][1]]):'';
+    return str.trim()+" Only /-";
+  }
+  function escXml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function printBoMCheque(r) {
+    const words = numberToWords(r.amt);
+    const figs  = Number(Math.abs(r.amt)).toLocaleString('en-IN') + "/-";
+    const now   = new Date();
+    const dd    = String(now.getDate()).padStart(2,'0');
+    const mm    = String(now.getMonth()+1).padStart(2,'0');
+    const yyyy  = String(now.getFullYear());
+    const digits = (dd+mm+yyyy).split('');
+    const DATE_X=1540, DATE_Y=85, BOX_W=51;
+    let dateSVG='';
+    digits.forEach((d,i)=>{
+      dateSVG+=`<text x="${DATE_X+i*BOX_W+Math.floor(BOX_W/2)}" y="${DATE_Y+34}" text-anchor="middle" font-family="'Courier New',Courier,monospace" font-size="32" font-weight="900" fill="#000" stroke="#000" stroke-width="0.8" paint-order="stroke fill">${d}</text>`;
+    });
+    let wL1=words, wL2='';
+    if(words.length>64){ const c=words.lastIndexOf(' ',64); wL1=words.substring(0,c); wL2=words.substring(c+1); }
+    const acPayee=`<g transform="translate(10,30)"><line x1="0" y1="180" x2="180" y2="0" stroke="#000" stroke-width="4"/><line x1="60" y1="180" x2="240" y2="0" stroke="#000" stroke-width="3"/><text x="140" y="90" font-family="Arial,sans-serif" font-size="28" font-weight="900" fill="#000" text-anchor="middle" stroke="#000" stroke-width="0.6" paint-order="stroke fill" transform="rotate(-45,135,90)">A/C PAYEE</text></g>`;
+    const PARTY_Y = 240, WORDS_Y1 = 325, WORDS_Y2 = 400;
+    const chequeContent=`${acPayee}${dateSVG}<text x="310" y="${PARTY_Y}" font-family="'Arial Black','Arial Bold',Arial,sans-serif" font-size="32" font-weight="900" fill="#000" stroke="#000" stroke-width="0.8" paint-order="stroke fill">${escXml(r.party.toUpperCase())}</text><text x="310" y="${WORDS_Y1}" font-family="'Arial Black','Arial Bold',Arial,sans-serif" font-size="27" font-weight="900" fill="#000" stroke="#000" stroke-width="0.6" paint-order="stroke fill">${escXml(wL1)}</text>${wL2?`<text x="320" y="${WORDS_Y2}" font-family="'Arial Black','Arial Bold',Arial,sans-serif" font-size="27" font-weight="900" fill="#000" stroke="#000" stroke-width="0.6" paint-order="stroke fill">${escXml(wL2)}</text>`:''}<text x="1570" y="400" font-family="'Courier New',Courier,monospace" font-size="36" font-weight="900" fill="#000" stroke="#000" stroke-width="1" paint-order="stroke fill">${escXml(figs)}</text>`;
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cheque Print</title><style>@page{size:A4 portrait;margin:0;}*{margin:0;padding:0;box-sizing:border-box;}html,body{width:21cm;height:29.7cm;overflow:hidden;background:#fff;}svg.cheque-page{display:block;width:21cm;height:29.7cm;}.guide{position:fixed;top:0;left:0;right:0;background:#fff9e6;border-bottom:3px solid #e60000;padding:10px 16px 6px;font-family:sans-serif;font-size:12px;z-index:999;}.guide h3{color:#e60000;font-size:13px;margin-bottom:5px;}.guide table{width:100%;border-collapse:collapse;}.guide td{padding:3px 6px;border:1px solid #ccc;}.guide td:first-child{font-weight:bold;background:#f5f5f5;white-space:nowrap;width:35%;}.ok{color:green;font-weight:bold;}.bad{color:red;font-weight:bold;}.pbtn{display:block;margin:8px auto 4px;padding:10px 40px;font-size:15px;font-weight:bold;background:#198754;color:#fff;border:none;border-radius:8px;cursor:pointer;}@media print{.guide{display:none !important;}.pbtn{display:none !important;}}</style></head><body><div class="guide"><h3>🖨️ PRINTER SETTINGS</h3><table><tr><td>Paper Size</td><td><span class="ok">✔ A4</span></td></tr><tr><td>Orientation</td><td><span class="ok">✔ Portrait</span></td></tr><tr><td>Margins</td><td><span class="ok">✔ None / 0mm</span></td></tr><tr><td>Scale / Zoom</td><td><span class="ok">✔ 100%</span></td></tr></table><button class="pbtn" onclick="window.print()">🖨️ PRINT CHEQUE NOW</button></div><svg class="cheque-page" viewBox="0 0 2100 2970" xmlns="http://www.w3.org/2000/svg" style="position:fixed;top:0;left:0;width:21cm;height:29.7cm;z-index:1;"><g transform="translate(580,0)"><g transform="rotate(90,0,0) translate(0,-940)">${chequeContent}</g></g></svg></body></html>`;
+    const win=window.open('','','width=860,height=700'); win.document.write(html); win.document.close();
+  }
+
+  function printDashboard() {
+    let d=window.currentDisplayData; if(!d||!d.length) return alert("No records.");
+    let t=0, h=`<html><head><title>Dashboard</title><style>body{font-family:sans-serif;padding:20px;}h2{color:#e60000;text-align:center;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:8px;font-size:12px;}.amt{text-align:right;}</style></head><body><h2>RAGHUVIR SWEETS AND BAKERS</h2><table><thead><tr><th>Date</th><th>Party Name</th><th class="amt">Amount (₹)</th></tr></thead><tbody>`;
+    d.forEach(r=>{h+=`<tr><td>${r.date}</td><td>${r.party}</td><td class="amt">${parseFloat(r.amt).toLocaleString()}</td></tr>`;t+=parseFloat(r.amt);});
+    h+=`<tr><td colspan="2" style="text-align:right;font-weight:bold">TOTAL:</td><td class="amt">₹ ${t.toLocaleString()}</td></tr></tbody></table></body></html>`;
+    const w=window.open('','','width=900,height=600'); w.document.write(h); w.document.close(); setTimeout(()=>w.print(),500);
+  }
+  function printStatement(vendor) {
+    const vd=fullData.filter(r=>r.party===vendor); if(!vd.length) return alert("No records.");
+    vd.sort((a,b)=>a.rawDate-b.rawDate);
+    let tp=vd.reduce((a,b)=>(b.method==='Credit'?a+parseFloat(b.amt):a),0);
+    let h=`<html><head><title>Statement - ${vendor}</title><style>body{font-family:sans-serif;padding:20px;}h2{color:#e60000;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ddd;padding:10px;font-size:12px;}.amt{text-align:right;font-weight:bold;}</style></head><body><h2>RAGHUVIR SWEETS AND BAKERS</h2><div><b>VENDOR:</b> ${vendor}</div><table><thead><tr><th>Date</th><th>Branch</th><th>Bill No</th><th>Status</th><th class="amt">Amount (₹)</th></tr></thead><tbody>`;
+    vd.forEach(r=>{h+=`<tr><td>${r.date}</td><td>${r.branch}</td><td>#${r.bill}</td><td>${r.method}</td><td class="amt">${parseFloat(r.amt).toLocaleString()}</td></tr>`;});
+    h+=`<tr><td colspan="4" style="text-align:right">BALANCE:</td><td class="amt">₹ ${tp.toLocaleString()}</td></tr></tbody></table></body></html>`;
+    const w=window.open('','','width=900,height=600'); w.document.write(h); w.document.close(); setTimeout(()=>w.print(),500);
+  }
+  function filterBySearch() { const t=document.getElementById('dashSearch').value.toLowerCase(); renderDashboard(fullData.filter(r=>r.party.toLowerCase().includes(t)||r.bill.toLowerCase().includes(t))); }
+  function toggleDashboard() { const f=document.getElementById('formView'),d=document.getElementById('dashboardView'),b=document.getElementById('accToggleBtn'); if(f.classList.contains('hidden')){f.classList.remove('hidden');d.classList.add('hidden');b.innerText="📜 DASHBOARD";}else{f.classList.add('hidden');d.classList.remove('hidden');b.innerText="➕ ENTRY FORM";loadDashboard();} }
+  function toggleDetail(id) { const el=document.getElementById(id); el.style.display=(el.style.display==='block'?'none':'block'); }
+  function verifyEntry(branch,index) { document.getElementById(`v-area-${branch}-${index}`).innerHTML='<span class="badge bg-success">VERIFIED</span>'; google.script.run.markAsVerified(branch,index); }
+  function openPaidModal(branch,index,bulk,grpIdx) { isBulk=bulk; currentItem={branch,index}; if(bulk) currentGroupItems=window['groupData'+grpIdx]; document.getElementById('overlay').style.display='block'; document.getElementById('paidPopup').style.display='block'; }
+  function submitPaidAction() {
+    const p={mode:document.getElementById('pMode').value,bank:document.getElementById('pBank').value,txDate:document.getElementById('pDate').value,remark:document.getElementById('pRemark').value};
+    if(p.mode!=='Cash'&&!p.bank) return alert("Bank Name Required");
+    const btn=document.getElementById('confirmPaidBtn'); btn.disabled=true;
+    if(isBulk) google.script.run.withSuccessHandler(done).markMultipleAsPaid(currentGroupItems,loggedInUser,p);
+    else google.script.run.withSuccessHandler(done).markAsPaid(currentItem.branch,currentItem.index,loggedInUser,p);
+  }
+  function done() { closeModals(); loadDashboard(); document.getElementById('confirmPaidBtn').disabled=false; document.getElementById('confirmPaidBtn').innerText="SAVE"; document.getElementById('successModal').style.display='block'; document.getElementById('overlay').style.display='block'; }
+  function closeModals() { document.querySelectorAll('.custom-modal').forEach(m=>m.style.display='none'); document.getElementById('overlay').style.display='none'; }
+  function fetchVendorHistory() {
+    const party=document.getElementById('partyName').value, branch=getCurrentBranch(); if(!party){document.getElementById('vendorHistBody').innerHTML='';return;}
+    google.script.run.withSuccessHandler(data=>{
+      let h=''; data.forEach(r=>{
+        let pBtns=r.link?r.link.split(",").map((u,j)=>`<a href="${u.trim()}" target="_blank" class="photo-link-btn">P${j+1}</a>`).join(""):'';
+        let v=parseFloat(r.amt),color=(r.method==='Credit')?(v<0?'text-primary':'amt-red'):'amt-green';
+        h+=`<tr style="font-size:0.75rem;border-bottom:1px solid #eee"><td class="p-2"><b>${r.party}</b><br><small>${r.date} | #${r.bill} | ${r.branch}</small></td><td class="p-2 text-end"><span class="${color}">₹${r.amt}</span><br><small class="fw-bold">${r.method.toUpperCase()}</small></td><td class="p-2 text-center">${pBtns}</td></tr>`;
+      });
+      document.getElementById('vendorHistBody').innerHTML=h||'<tr><td colspan="3" class="text-center p-3">No history</td></tr>';
+    }).getVendorHistory(branch,party,ROLE);
+  }
+  function promptAddParty() { let n=prompt("Vendor Name:"); if(n) google.script.run.withSuccessHandler(loadVendors).addNewParty(n); }
+  function getCurrentBranch() { const isAnyAcc=(ROLE==='accountant'||ROLE==='accountantn'||ROLE==='accountantv'); return isAnyAcc?document.getElementById('accBranch').value:BRANCH; }
+</script>
+</body>
+</html>
